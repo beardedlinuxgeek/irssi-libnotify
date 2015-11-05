@@ -23,6 +23,10 @@ $VERSION = "0.5";
 Irssi::settings_add_str('notify', 'notify_remote', '');
 Irssi::settings_add_str('notify', 'notify_debug', '');
 
+# Send no more than one notification within the threshold interval (seconds)
+Irssi::settings_add_int('notify', 'notify_threshold', 15);
+my $last_notify_time = time();
+
 sub sanitize {
   my ($text) = @_;
   encode_entities($text,'\'<>&');
@@ -37,6 +41,10 @@ sub sanitize {
 
 sub notify {
     my ($server, $summary, $message) = @_;
+
+    # throttle notifications by the configured number of seconds
+    return if ((time() - $last_notify_time) <
+        Irssi::settings_get_int('notify_threshold'));
 
     # Make the message entity-safe
     $summary = sanitize($summary);
@@ -65,6 +73,7 @@ sub notify {
 	$server->command($cmd);
     }
 
+    $last_notify_time = time();
 }
  
 sub print_text_notify {
@@ -83,6 +92,10 @@ sub message_private_notify {
     my ($server, $msg, $nick, $address) = @_;
 
     return if (!$server);
+
+    # don't send notification if the message originates from the current window
+    return if (Irssi::active_win()->{active}->{visible_name} eq $nick);
+
     notify($server, "PM from ".$nick, $msg);
 }
 
